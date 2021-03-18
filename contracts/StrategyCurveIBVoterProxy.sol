@@ -34,6 +34,14 @@ contract StrategyCurveIBVoterProxy is BaseStrategy {
     address public crvRouter =
         address(0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F); // default to sushiswap, more CRV liquidity there
     address[] public crvPath;
+    
+	uint256 public crvMinimum = 12500000000000000000000 // minimum amount of CRV needed for tend or harvest to trigger, default is 12,500 CRV
+	uint256 public tendProfitFactor = 250 // reevaluate this if CRV or gas price changes drastically, currently 100-300 gwei and $2.50/CRV
+	uint256 public harvestProfitFactor = 230 // reevaluate this if CRV or gas price changes drastically, currently 100-300 gwei and $2.50/CRV
+
+    // this controls the number of tends before we harvest
+	uint256 public tendCounter = 0 
+	uint256 public tendsPerHarvest = 3
 
     ICrvV3 public constant crv = ICrvV3(address(0xD533a949740bb3306d119CC777fa900bA034cd52));
     IERC20 public constant weth = IERC20(address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2));
@@ -178,9 +186,12 @@ contract StrategyCurveIBVoterProxy is BaseStrategy {
             }
         }
 
+        // sent all of our Iron Bank pool tokens to the proxy and deposit to the gauge
         uint256 _toInvest = want.balanceOf(address(this));
         want.safeTransfer(address(proxy), _toInvest);
         proxy.deposit(gauge, address(want));
+        // since we've completed our harvest call, reset our tend counter
+        tendCounter = 0;
     }
 
     function liquidatePosition(uint256 _amountNeeded)
@@ -238,6 +249,133 @@ contract StrategyCurveIBVoterProxy is BaseStrategy {
 
         return protected;
     }
+    
+    // keeper functions
+    
+    // Check the gauge for CRV, then harvest gauge CRV and sell for preferred asset, but don't deposit
+    function tend() external override onlyKeepers {
+        uint256 gaugeTokens = proxy.balanceOf(gauge);
+        if (gaugeTokens > 0) {
+            proxy.harvest(gauge);
+            uint256 crvBalance = crv.balanceOf(address(this));
+            uint256 _keepCRV = crvBalance.mul(keepCRV).div(FEE_DENOMINATOR);
+            IERC20(address(crv)).safeTransfer(voter, _keepCRV);
+            uint256 crvRemainder = crvBalance.sub(_keepCRV);
+
+            _sell(crvRemainder);
+            // increase our tend counter by 1 so we can know when we should harvest again
+            previoustendCounter = tendCounter;
+            tendCounter = previoustendCounter.add(1);
+        }
+    }
+    
+    function harvestTrigger(uint256 callCostinEth) external view override returns (bool) {
+        StrategyParams memory params = vault.strategies(address(this));
+
+        // Should not trigger if Strategy is not activated
+        if (params.activation == 0) return false;
+
+        // Should not trigger if we haven't waited long enough since previous harvest
+        if (block.timestamp.sub(params.lastReport) < minReportDelay)
+            return false;
+
+        // Should trigger if hasn't been called in a while
+        if (block.timestamp.sub(params.lastReport) >= maxReportDelay)
+            return true;
+
+        // If some amount is owed, pay it back
+        // NOTE: Since debt is based on deposits, it makes sense to guard against large
+        //       changes to the value from triggering a harvest directly through user
+        //       behavior. This should ensure reasonable resistance to manipulation
+        //       from user-initiated withdrawals as the outstanding debt fluctuates.
+        uint256 outstanding = vault.debtOutstanding();
+        if (outstanding > debtThreshold) return true;
+
+        // Check for profits and losses
+        uint256 total = estimatedTotalAssets();
+        // Trigger if we have a loss to report
+        if (total.add(debtThreshold) < params.totalDebt) return true;
+        
+        // no need to spend the gas to harvest every time; tend is much cheaper
+        if (tendCounter < tendsPerHarvest) {
+        	return false;
+        }
+        
+        // check how much claimable CRV we have; this can only be done off-chain 
+        uint256 claimableTokens = IGaugefi(gauge).claimable_tokens(address(proxy))
+        
+        // do stuff here when we have enough CRV
+        if (claimableTokens > crvMinimum) {
+            // determine how rich we get if we sell all of the CRV in our gauge
+            address[] memory harvestPath = new address[](3);
+            harvestPath[0] = crv;
+        	harvestPath[0] = weth;
+        	harvestPath[1] = dai;
+
+        	uint256[] memory _crvDollarsOut = IUniswapV2Router02(crvRouter).getAmountsOut(claimableTokens, harvestPath);
+        	crvDollarsOut = _crvDollarsOut[_crvDollarsOut.length - 1];
+            
+            // calculate how much the call costs in dollars (converted from ETH)
+            uint256 callCost = ethToDollaBill(callCostinEth);
+            
+            // if our profit is greater than the cost of the tend * our chosen multiple, then tend it!!
+        	return (harvestProfitFactor.mul(callCost) < crvDollarsOut;
+        }        
+    }    
+
+	// set what will trigger keepers to call tend, which will harvest and sell CRV for optimal asset but not deposit or report profits
+    function tendTrigger(uint256 callCostinEth) external view override returns (bool) {     
+        // we need to call a harvest every once in a while
+        if (tendCounter >= tendsPerHarvest) {
+        	return false;
+        }
+        
+        // check how much claimable CRV we have; this can only be done off-chain 
+        uint256 claimableTokens = IGaugefi(gauge).claimable_tokens(address(proxy))
+        
+        // do stuff here when we have enough CRV
+        if (claimableTokens > crvMinimum) {
+            // determine how rich we get if we sell all of the CRV in our gauge
+            address[] memory tendPath = new address[](3);
+            tendPath[0] = crv;
+        	tendPath[0] = weth;
+        	tendPath[1] = dai;
+
+        	uint256[] memory _crvDollarsOut = IUniswapV2Router02(crvRouter).getAmountsOut(claimableTokens, tendPath);
+        	crvDollarsOut = _crvDollarsOut[_crvDollarsOut.length - 1];
+            
+            // calculate how much the call costs in dollars (converted from ETH)
+            uint256 callCost = ethToDollaBill(callCostinEth);
+            
+            // if our profit is greater than the cost of the tend * our chosen multiple, then tend it!!
+        	return (tendProfitFactor.mul(callCost) < crvDollarsOut;
+        }
+    }
+    
+    // convert our keeper's eth cost into dai
+    function ethToDollaBill(uint256 _ethAmount) internal view returns (uint256) {
+        address[] memory ethPath = new address[](2);
+        ethPath[0] = weth;
+        ethPath[1] = dai;
+
+        uint256[] memory callCostInDai = IUniswapV2Router02(crvRouter).getAmountsOut(_ethAmount, ethPath);
+
+        return callCostInDai[callCostInDai.length - 1];
+    	}
+
+
+	// use these functions to set parameters for our triggers    
+    function setTendProfitFactor() external (uint256 _tendProfitFactor) onlyAuthorized {
+    	tendProfitFactor = _tendProfitFactor;
+        }
+
+    function setHarvestProfitFactor() external (uint256 _harvestProfitFactor) onlyAuthorized {
+    	harvestProfitFactor = _harvestProfitFactor;
+        }
+        
+    function setCrvMin() external (uint256 _crvMinimum) onlyAuthorized {
+    	crvMinimum = _crvMinimum;
+        }
 
     // setter functions
     // These functions are useful for setting parameters of the strategy that may need to be adjusted.
