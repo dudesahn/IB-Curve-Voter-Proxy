@@ -35,13 +35,13 @@ contract StrategyCurveIBVoterProxy is BaseStrategy {
         address(0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F); // default to sushiswap, more CRV liquidity there
     address[] public crvPath;
     
-	uint256 public crvMinimum = 12500000000000000000000 // minimum amount of CRV needed for tend or harvest to trigger, default is 12,500 CRV
-	uint256 public tendProfitFactor = 250 // reevaluate this if CRV or gas price changes drastically, currently 100-300 gwei and $2.50/CRV
-	uint256 public harvestProfitFactor = 230 // reevaluate this if CRV or gas price changes drastically, currently 100-300 gwei and $2.50/CRV
+    uint256 public crvMinimum = 12500000000000000000000 // minimum amount of CRV needed for tend or harvest to trigger, default is 12,500 CRV
+    uint256 public tendProfitFactor = 250 // reevaluate this if CRV or gas price changes drastically, currently 100-300 gwei and $2.50/CRV
+    uint256 public harvestProfitFactor = 230 // reevaluate this if CRV or gas price changes drastically, currently 100-300 gwei and $2.50/CRV
 
     // this controls the number of tends before we harvest
-	uint256 public tendCounter = 0 
-	uint256 public tendsPerHarvest = 3
+    uint256 public tendCounter = 0 
+    uint256 public tendsPerHarvest = 3
 
     ICrvV3 public constant crv = ICrvV3(address(0xD533a949740bb3306d119CC777fa900bA034cd52));
     IERC20 public constant weth = IERC20(address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2));
@@ -269,6 +269,7 @@ contract StrategyCurveIBVoterProxy is BaseStrategy {
         }
     }
     
+    // set what will trigger our keepers to harvest
     function harvestTrigger(uint256 callCostinEth) external view override returns (bool) {
         StrategyParams memory params = vault.strategies(address(this));
 
@@ -323,7 +324,7 @@ contract StrategyCurveIBVoterProxy is BaseStrategy {
         }        
     }    
 
-	// set what will trigger keepers to call tend, which will harvest and sell CRV for optimal asset but not deposit or report profits
+    // set what will trigger keepers to call tend, which will harvest and sell CRV for optimal asset but not deposit or report profits
     function tendTrigger(uint256 callCostinEth) external view override returns (bool) {     
         // we need to call a harvest every once in a while
         if (tendCounter >= tendsPerHarvest) {
