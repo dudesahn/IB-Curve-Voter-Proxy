@@ -84,6 +84,24 @@ contract StrategyCurveIBVoterProxy is BaseStrategy {
         crvPath[2] = address(dai);
     }
 
+            // determine how rich we get if we sell all of the CRV in our gauge
+            address[] memory harvestPath = new address[](3);
+            harvestPath[0] = crv;
+        	harvestPath[0] = weth;
+        	harvestPath[1] = dai;
+
+    // look at the average price when swapping min CRV, just use this in testing
+    function crvPrice() internal view returns (uint256) {
+            address[] memory harvestPath = new address[](3);
+            harvestPath[0] = crv;
+        	harvestPath[0] = weth;
+        	harvestPath[1] = dai;
+        
+        	uint256[] memory _crvDollarsOut = IUniswapV2Router02(crvRouter).getAmountsOut(claimableTokens, harvestPath);
+        	crvDollarsOut = _crvDollarsOut[_crvDollarsOut.length - 1] / (10**18);
+    }    
+
+
     function name() external view override returns (string memory) {
         // Add your own name here, suggestion e.g. "StrategyCreamYFI"
         return "StrategyCurveIBVoterProxy";
