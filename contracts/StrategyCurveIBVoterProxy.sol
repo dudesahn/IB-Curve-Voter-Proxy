@@ -211,9 +211,9 @@ contract StrategyCurveIBVoterProxy is BaseStrategy {
     }
 
     // Sells our harvested CRV into the selected output (DAI, USDC, or USDT).
-    function _sell(uint256 _amount) internal {
+    function _sell(uint256 _sellAmount) internal {
         IUniswapV2Router02(crvRouter).swapExactTokensForTokens(
-            _amount,
+            _sellAmount,
             uint256(0),
             crvPath,
             address(this),
