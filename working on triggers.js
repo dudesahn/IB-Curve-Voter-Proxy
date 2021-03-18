@@ -16,23 +16,22 @@ harvest calls
 
 		if IGaugefi(gauge).claimable_tokens > 5000
 
-uint256 public crvMinimum = 20000
-uint256 public crvMaximum = 70000
-uint256 public fastGasMax = 250000000000 // this is gas with nine zeroes on the end
+	uint256 public crvMinimum = 12500 // minimum amount of CRV needed for tend or harvest to trigger
 
-Chainlink fast gas oracle = 0x169E633A2D1E6c10dD91238Ba11c4A708dfEF37C
+	uint256 private tendProfitFactor = 
+	uint256 private harvestProfitFactor = 
 
-#######
-// Notes: Slippage actually isn't too bad for large orders; sETH vault regularly sells ~25k CRV, and doesn't get sandwiched
-// Maybe pulling gas price from Chainlink fastgas oracle is good so that keeper's cant trigger if gas is too high (maybe easier than a specific profit factor)
-#######
-// this allows us to manually ask keepers to harvest/tend if necessary
 
-uint256 public signalTend = 0
+	// this allows us to manually ask keepers to harvest/tend if necessary
+	uint256 public signalTend = 0
+	uint256 public signalHarvest = 0
+        
+    // this controls the number of tends before we harvest
+	uint256 private view harvestCounter = 0 
+	uint256 private view tendsPerHarvest = 3
 
-uint256 public signalHarvest = 0
-
-    function manualHarvest() public (uint256 _harvest) {
+	// this allows us to manually ask keepers to harvest/tend if necessary
+    function manualHarvest() external (uint256 _harvest) onlyAuthorized {
         if (_harvest = 1) {
         	signalHarvest = 1
         }
@@ -40,31 +39,29 @@ uint256 public signalHarvest = 0
         	signalHarvest = 0
         }
 
-    function manualTend() public (uint256 _tend) {
+    function manualTend() external (uint256 _tend) onlyAuthorized {
         if (_tend = 1) {
         	signalTend = 1
         }
         else {
         	signalTend = 0
         }
-
-    function fastGas() public view returns (uint256) {
-    	_fastgas = chainlinkFastGas.latestAnswer();
-    	return _fastgas; 
+        
+    function setTendProfitFactor() external (uint256 _tendProfitFactor) onlyAuthorized {
+    	tendProfitFactor = _tendProfitFactor
         }
 
-    function setMaxGas() public external (uint256 _maxGas) onlyAuthorized {
-    	fastGasMax = _maxGas;
+    function setHarvestProfitFactor() external (uint256 _harvestProfitFactor) onlyAuthorized {
+    	harvestProfitFactor = _harvestProfitFactor
+        }
+        
+    function setCrvMin() external (uint256 _crvMinimum) onlyAuthorized {
+    	crvMinimum = _crvMinimum
         }
 
-#################################
-			
-	uint256 public harvestCounter = 0 
-	
-	uint256 public tendsPerHarvest = 3
 	
 	// look at the average price when swapping 100 crv for dai
-	function crvPrice() public view returns (uint256) {
+	function crvPrice() private view returns (uint256) {
         address[] memory path = new address[](3);
         path[0] = crv;
         path[1] = weth;
@@ -75,17 +72,16 @@ uint256 public signalHarvest = 0
         return _crvPrice;
     }    
 
-    function tendTrigger(uint256 callCost) public view override returns (bool) {
-//         make sure to call tendtrigger with same callcost as harvestTrigger
-//         if (harvestTrigger(callCost)) {
-//             return false;
-//         }
-        
+    function tendTrigger(uint256 callCost) external view override returns (bool) {     
         if (harvestCounter >= tendsPerHarvest) {
         	return false;
         }
         
+        
+        
         if (IGaugefi(gauge).claimable_tokens > 5000) { //need to update this to make it correct
+            // do stuff here when we have enough CRV
+            
             uint256 profit = profit();
 
         	if (profit > 0) {
@@ -99,6 +95,39 @@ uint256 public signalHarvest = 0
         }
         
         }
+
+
+
+##### Final stuff above here
+
+
+
+// double-check all of my use of internal/external/public/private functions
+
+#######
+// Notes: Slippage actually isn't too bad for large orders; sETH vault regularly sells ~25k CRV, and doesn't get sandwiched
+// Maybe pulling gas price from Chainlink fastgas oracle is good so that keeper's cant trigger if gas is too high (maybe easier than a specific profit factor)
+// perhaps add in both. have a switch that either uses profit factor or gas prices+total CRV
+#######
+
+
+uint256 public crvMaximum = 70000
+uint256 public fastGasMax = 250000000000 // this is gas with nine zeroes on the end
+Chainlink fast gas oracle = 0x169E633A2D1E6c10dD91238Ba11c4A708dfEF37C
+
+
+//     function fastGas() public view returns (uint256) {
+//     	_fastgas = chainlinkFastGas.latestAnswer();
+//     	return _fastgas; 
+//         }
+// 
+//     function setMaxGas() public external (uint256 _maxGas) onlyAuthorized {
+//     	fastGasMax = _maxGas;
+//         }
+
+#################################
+			
+
 
 
     function _callCostToWant(uint256 callCost) internal view returns (uint256) {
