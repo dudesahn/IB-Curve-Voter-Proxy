@@ -16,9 +16,16 @@ harvest calls
 
 		if IGaugefi(gauge).claimable_tokens > 5000
 
-uint256 public crvWanted = 10000
+uint256 public crvMinimum = 20000
+uint256 public crvMaximum = 70000
+uint256 public fastGasMax = 250000000000 // this is gas with nine zeroes on the end
 
+Chainlink fast gas oracle = 0x169E633A2D1E6c10dD91238Ba11c4A708dfEF37C
 
+#######
+// Notes: Slippage actually isn't too bad for large orders; sETH vault regularly sells ~25k CRV, and doesn't get sandwiched
+// Maybe pulling gas price from Chainlink fastgas oracle is good so that keeper's cant trigger if gas is too high (maybe easier than a specific profit factor)
+#######
 // this allows us to manually ask keepers to harvest/tend if necessary
 
 uint256 public signalTend = 0
@@ -41,7 +48,14 @@ uint256 public signalHarvest = 0
         	signalTend = 0
         }
 
+    function fastGas() public view returns (uint256) {
+    	_fastgas = chainlinkFastGas.latestAnswer();
+    	return _fastgas; 
+        }
 
+    function setMaxGas() public external (uint256 _maxGas) onlyAuthorized {
+    	fastGasMax = _maxGas;
+        }
 
 #################################
 			
