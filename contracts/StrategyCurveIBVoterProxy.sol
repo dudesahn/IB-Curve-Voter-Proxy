@@ -42,7 +42,7 @@ contract StrategyCurveIBVoterProxy is BaseStrategy {
     // this controls the number of tends before we harvest
     uint256 public tendCounter = 0;
     uint256 public tendsPerHarvest = 3;
-    uint256 harvestNow = 0; // 0 for false, 1 for true if we are mid-harvest
+    uint256 private harvestNow = 0; // 0 for false, 1 for true if we are mid-harvest
 
     ICrvV3 public constant crv = ICrvV3(address(0xD533a949740bb3306d119CC777fa900bA034cd52));
     IERC20 public constant weth = IERC20(address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2));
@@ -220,24 +220,7 @@ contract StrategyCurveIBVoterProxy is BaseStrategy {
             	}
         }
     }
-//     Check the gauge for CRV, then harvest gauge CRV and sell for preferred asset, but don't deposit
-//     function tend() external override onlyKeepers {
-//         uint256 gaugeTokens = proxy.balanceOf(gauge);
-//         if (gaugeTokens > 0) {
-//             proxy.harvest(gauge);
-//             uint256 crvBalance = crv.balanceOf(address(this));
-//             uint256 _keepCRV = crvBalance.mul(keepCRV).div(FEE_DENOMINATOR);
-//             IERC20(address(crv)).safeTransfer(voter, _keepCRV);
-//             uint256 crvRemainder = crvBalance.sub(_keepCRV);
-// 
-//             _sell(crvRemainder);
-//             increase our tend counter by 1 so we can know when we should harvest again
-//             uint256 previousTendCounter = tendCounter;
-//             tendCounter = previousTendCounter.add(1);
-//         }
-//     }
-
-
+    
     function liquidatePosition(uint256 _amountNeeded)
         internal
         override
