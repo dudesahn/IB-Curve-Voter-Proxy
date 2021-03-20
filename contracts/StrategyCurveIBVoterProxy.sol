@@ -309,6 +309,13 @@ contract StrategyCurveIBVoterProxy is BaseStrategy {
         tendsPerHarvest = _tendsPerHarvest;
     }
     
+    // use this to set the address of our bot who will be watching this strategy
+    function setCrvGaugeBot(address _CrvGaugeBot) external onlyAuthorized {
+        require(_CrvGaugeBot != address(0));
+        CrvGaugeBot = _CrvGaugeBot;
+        emit UpdatedCrvGaugeBot(_CrvGaugeBot);
+    }    
+    
     // setter functions
     // These functions are useful for setting parameters of the strategy that may need to be adjusted.
 
