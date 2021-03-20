@@ -42,6 +42,7 @@ contract StrategyCurveIBVoterProxy is BaseStrategy {
     uint256 public tendCounter = 0;
     uint256 public tendsPerHarvest = 3;
     uint256 internal harvestNow = 0; // 0 for false, 1 for true if we are mid-harvest
+    uint256 public minCrvtoHarvest = 0; // minimum CRV claimable in the gauge before we harvest
 
     ICrvV3 public constant crv =
         ICrvV3(address(0xD533a949740bb3306d119CC777fa900bA034cd52));
@@ -309,12 +310,23 @@ contract StrategyCurveIBVoterProxy is BaseStrategy {
         tendsPerHarvest = _tendsPerHarvest;
     }
     
+    // magic bot functions
     // use this to set the address of our bot who will be watching this strategy
     function setCrvGaugeBot(address _CrvGaugeBot) external onlyAuthorized {
         require(_CrvGaugeBot != address(0));
         CrvGaugeBot = _CrvGaugeBot;
-        emit UpdatedCrvGaugeBot(_CrvGaugeBot);
     }    
+    
+    // modifier so that our bot, governance, and strategist can update ideal CRV to harvest
+    modifier onlyCrvGaugeBot() {
+        require(msg.sender == CrvGaugeBot || msg.sender == strategist || msg.sender == governance(), "!authorized");
+        _;
+    }
+
+    function setIdealCrvtoHarvest(address _idealCrvtoHarvest) external onlyCrvGaugeBot {
+        require(_CrvGaugeBot != address(0));
+        idealCrvtoHarvest = _idealCrvtoHarvest;
+    }
     
     // setter functions
     // These functions are useful for setting parameters of the strategy that may need to be adjusted.
