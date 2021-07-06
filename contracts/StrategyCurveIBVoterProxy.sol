@@ -222,6 +222,7 @@ contract StrategyCurveIBVoterProxy is BaseStrategy {
                 _loss = debt.sub(assets);
             }
         }
+        require(_liquidatedAmount + _loss == _amountNeeded)
 
         return (_liquidatedAmount, _loss);
     }
