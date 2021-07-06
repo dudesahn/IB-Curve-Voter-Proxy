@@ -33,7 +33,8 @@ contract StrategyCurveIBVoterProxy is BaseStrategy {
 
     ICurveFi public constant curve =
         ICurveFi(address(0x2dded6Da1BF5DBdF597C45fcFaa3194e53EcfeAF)); // Curve Iron Bank Pool
-    address public constant voter = address(0xF147b8125d2ef93FB6965Db97D6746952a133934); // Yearn's veCRV voter
+    address public constant voter =
+        address(0xF147b8125d2ef93FB6965Db97D6746952a133934); // Yearn's veCRV voter
     address public crvRouter =
         address(0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F); // default to sushiswap, more CRV liquidity there
     address[] public crvPath;
@@ -136,10 +137,10 @@ contract StrategyCurveIBVoterProxy is BaseStrategy {
         // this is a harvest, so set our switch equal to 1 so this
         // performs as a harvest the whole way through
         harvestNow = 1;
-        
+
         // if this was the result of a manual keep3r harvest, then reset our trigger
         if (manualKeep3rHarvest == 1) manualKeep3rHarvest = 0;
-        
+
         // serious loss should never happen, but if it does (for instance, if Curve is hacked), let's record it accurately
         uint256 assets = estimatedTotalAssets();
         uint256 debt = vault.strategies(address(this)).totalDebt;
@@ -175,8 +176,7 @@ contract StrategyCurveIBVoterProxy is BaseStrategy {
     function adjustPosition(uint256 _debtOutstanding) internal override {
         if (emergencyExit) {
             return;
-        }
-        else if (harvestNow == 1) {
+        } else if (harvestNow == 1) {
             // if this is part of a harvest call, send all of our Iron Bank pool tokens to the proxy and deposit to the gauge
             uint256 _toInvest = want.balanceOf(address(this));
             want.safeTransfer(address(proxy), _toInvest);
@@ -222,8 +222,7 @@ contract StrategyCurveIBVoterProxy is BaseStrategy {
                 _loss = debt.sub(assets);
             }
         }
-        require(_liquidatedAmount + _loss == _amountNeeded)
-
+        require(_liquidatedAmount + _loss == _amountNeeded);
         return (_liquidatedAmount, _loss);
     }
 
@@ -268,7 +267,7 @@ contract StrategyCurveIBVoterProxy is BaseStrategy {
         returns (bool)
     {
         StrategyParams memory params = vault.strategies(address(this));
-        
+
         // have a manual toggle switch if needed since keep3rs are more efficient than manual harvest
         if (manualKeep3rHarvest == 1) return true;
 
@@ -298,17 +297,17 @@ contract StrategyCurveIBVoterProxy is BaseStrategy {
 
         // no need to spend the gas to harvest every time; tend is much cheaper
         if (tendCounter < tendsPerHarvest) return false;
-        
+
         // Trigger if it makes sense for the vault to send funds idle funds from the vault to the strategy. For future, non-Curve
         // strategies, it makes more sense to make this a trigger separate from profitFactor. If I start using tend meaningfully,
-        // would perhaps make sense to add in any DAI, USDC, or USDT sitting in the strategy as well since that would be added to 
-        // the gauge as well. 
+        // would perhaps make sense to add in any DAI, USDC, or USDT sitting in the strategy as well since that would be added to
+        // the gauge as well.
         uint256 profit = 0;
         if (total > params.totalDebt) profit = total.sub(params.totalDebt); // We've earned a profit!
-        
+
         // calculate how much the call costs in dollars (converted from ETH)
         uint256 callCost = ethToDollaBill(callCostinEth);
-        
+
         uint256 credit = vault.creditAvailable();
         return (profitFactor.mul(callCost) < credit.add(profit));
     }
@@ -338,15 +337,20 @@ contract StrategyCurveIBVoterProxy is BaseStrategy {
     }
 
     // convert our keeper's eth cost into dai
-    function ethToDollaBill(uint256 _ethAmount) internal view returns (uint256) {
+    function ethToDollaBill(uint256 _ethAmount)
+        internal
+        view
+        returns (uint256)
+    {
         address[] memory ethPath = new address[](2);
         ethPath[0] = address(weth);
         ethPath[1] = address(dai);
 
-        uint256[] memory callCostInDai = IUniswapV2Router02(crvRouter).getAmountsOut(_ethAmount, ethPath);
+        uint256[] memory callCostInDai =
+            IUniswapV2Router02(crvRouter).getAmountsOut(_ethAmount, ethPath);
 
         return callCostInDai[callCostInDai.length - 1];
-    	}
+    }
 
     // set number of tends before we call our next harvest
     function setTendsPerHarvest(uint256 _tendsPerHarvest)
@@ -356,9 +360,12 @@ contract StrategyCurveIBVoterProxy is BaseStrategy {
         tendsPerHarvest = _tendsPerHarvest;
     }
 
-	// set this to 1 if we want our keep3rs to manually harvest the strategy; keep3r harvest is more cost-efficient than strategist harvest
-    function setKeep3rHarvest(uint256 _setKeep3rHarvest) external onlyAuthorized {
-    	manualKeep3rHarvest = _setKeep3rHarvest;
+    // set this to 1 if we want our keep3rs to manually harvest the strategy; keep3r harvest is more cost-efficient than strategist harvest
+    function setKeep3rHarvest(uint256 _setKeep3rHarvest)
+        external
+        onlyAuthorized
+    {
+        manualKeep3rHarvest = _setKeep3rHarvest;
     }
 
     // setter functions
