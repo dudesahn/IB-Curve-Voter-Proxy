@@ -55,7 +55,7 @@ contract StrategyCurveIBVoterProxy is BaseStrategy {
 
     constructor(address _vault) public BaseStrategy(_vault) {
         // You can set these parameters on deployment to whatever you want
-        maxReportDelay = 504000; // 140 hours
+        maxReportDelay = 504000; // 140 hours in seconds
         debtThreshold = 400 * 1e18; // we shouldn't ever have debt, but set a bit of a buffer
         profitFactor = 4000; // in this strategy, profitFactor is only used for telling keep3rs when to move funds from vault to strategy
 
