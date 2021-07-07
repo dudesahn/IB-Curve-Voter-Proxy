@@ -215,15 +215,12 @@ contract StrategyCurveIBVoterProxy is BaseStrategy {
             uint256 withdrawnBal = want.balanceOf(address(this));
             _liquidatedAmount = Math.min(_amountNeeded, withdrawnBal);
 
-            // if _amountNeeded != withdrawnBal, then we have an error
-            if (_amountNeeded != withdrawnBal) {
-                uint256 assets = estimatedTotalAssets();
-                uint256 debt = vault.strategies(address(this)).totalDebt;
-                _loss = debt.sub(assets);
-            }
+            _loss = _amountNeeded.sub(_liquidatedAmount);
+            
+        } else {
+            // we have enough balance to cover the liquidation available
+            return (_amountNeeded, 0);
         }
-        require(_liquidatedAmount + _loss == _amountNeeded);
-        return (_liquidatedAmount, _loss);
     }
 
     // Sells our harvested CRV into the selected output (DAI, USDC, or USDT).
