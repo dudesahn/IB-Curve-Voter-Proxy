@@ -17,6 +17,8 @@ import {
     StrategyParams
 } from "@yearnvaults/contracts/BaseStrategy.sol";
 
+/* ========== CONTRACT ========== */
+
 contract StrategyCurveIBVoterProxy is BaseStrategy {
     using SafeERC20 for IERC20;
     using Address for address;
@@ -29,7 +31,7 @@ contract StrategyCurveIBVoterProxy is BaseStrategy {
             address(0x9a165622a744C20E3B2CB443AeD98110a33a231b)
         ); // Yearn's Updated v3 StrategyProxy
 
-    uint256 public optimal = 0;
+    uint256 public optimal;
 
     ICurveFi public constant curve =
         ICurveFi(address(0x2dded6Da1BF5DBdF597C45fcFaa3194e53EcfeAF)); // Curve Iron Bank Pool
@@ -38,20 +40,23 @@ contract StrategyCurveIBVoterProxy is BaseStrategy {
     address public constant crvRouter =
         address(0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F); // default to sushiswap, more CRV liquidity there
     address[] public crvPath;
+    
+    // Swap stuff
+    uint256 public keepCRV = 1000; // the percentage of CRV we re-lock for boost (in basis points)
+    uint256 public constant FEE_DENOMINATOR = 10000; // with this and the above, sending 10% of our CRV yield to our voter
 
     ICrvV3 public constant crv =
-        ICrvV3(address(0xD533a949740bb3306d119CC777fa900bA034cd52));
+        ICrvV3(0xD533a949740bb3306d119CC777fa900bA034cd52);
+    IERC20 public constant convexToken =
+        IERC20(0x4e3FBD56CD56c3e72c1403e103b45Db9da5B9D2B);
     IERC20 public constant weth =
-        IERC20(address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2));
+        IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
     IERC20 public constant dai =
-        IERC20(address(0x6B175474E89094C44Da98b954EedeAC495271d0F));
+        IERC20(0x6B175474E89094C44Da98b954EedeAC495271d0F);
     IERC20 public constant usdc =
-        IERC20(address(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48));
+        IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
     IERC20 public constant usdt =
-        IERC20(address(0xdAC17F958D2ee523a2206206994597C13D831ec7));
-
-    uint256 public keepCRV = 1000;
-    uint256 public constant FEE_DENOMINATOR = 10000;
+        IERC20(0xdAC17F958D2ee523a2206206994597C13D831ec7);
 
     constructor(address _vault) public BaseStrategy(_vault) {
         // You can set these parameters on deployment to whatever you want
@@ -60,14 +65,14 @@ contract StrategyCurveIBVoterProxy is BaseStrategy {
         profitFactor = 4000; // in this strategy, profitFactor is only used for telling keep3rs when to move funds from vault to strategy
 
         // want = crvIB, Curve's Iron Bank pool (ycDai+ycUsdc+ycUsdt)
-        want.safeApprove(address(proxy), uint256(-1));
+        want.safeApprove(address(proxy), type(uint256).max);
 
         // add approvals for crv on sushiswap and uniswap due to weird crv approval issues for setCrvRouter
         // add approvals on all tokens
-        crv.approve(crvRouter, uint256(-1));
-        dai.safeApprove(address(curve), uint256(-1));
-        usdc.safeApprove(address(curve), uint256(-1));
-        usdt.safeApprove(address(curve), uint256(-1));
+        crv.approve(crvRouter, type(uint256).max);
+        dai.safeApprove(address(curve), type(uint256).max);
+        usdc.safeApprove(address(curve), type(uint256).max);
+        usdt.safeApprove(address(curve), type(uint256).max);
 
         crvPath = new address[](3);
         crvPath[0] = address(crv);
@@ -76,7 +81,6 @@ contract StrategyCurveIBVoterProxy is BaseStrategy {
     }
 
     function name() external view override returns (string memory) {
-        // Add your own name here, suggestion e.g. "StrategyCreamYFI"
         return "StrategyCurveIBVoterProxy";
     }
 
@@ -147,8 +151,6 @@ contract StrategyCurveIBVoterProxy is BaseStrategy {
                 _profit = 0;
             }
         }
-
-        return (_profit, _loss, _debtPayment);
     }
 
     function adjustPosition(uint256 _debtOutstanding) internal override {
@@ -260,8 +262,9 @@ contract StrategyCurveIBVoterProxy is BaseStrategy {
         // calculate how much the call costs in dollars (converted from ETH)
         uint256 callCost = ethToDai(callCostinEth);
 
+        // check if it makes sense to send funds from vault to strategy
         uint256 credit = vault.creditAvailable();
-        return (profitFactor.mul(callCost) < credit.add(profit));
+        if (profitFactor.mul(callCost) < credit.add(profit)) return true;
     }
 
     // convert our keeper's eth cost into dai
@@ -270,14 +273,16 @@ contract StrategyCurveIBVoterProxy is BaseStrategy {
         view
         returns (uint256)
     {
-        address[] memory ethPath = new address[](2);
-        ethPath[0] = address(weth);
-        ethPath[1] = address(dai);
-
-        uint256[] memory callCostInDai =
-            IUniswapV2Router02(crvRouter).getAmountsOut(_ethAmount, ethPath);
-
-        return callCostInDai[callCostInDai.length - 1];
+        if (_ethAmount > 0) {
+            address[] memory ethPath = new address[](2);
+        	ethPath[0] = address(weth);
+        	ethPath[1] = address(dai);
+        	uint256[] memory callCostInDai = IUniswapV2Router02(crvRouter).getAmountsOut(_ethAmount, ethPath);
+        	
+        	return callCostInDai[callCostInDai.length - 1];
+        } else {
+        	return 0;
+        }
     }
 
     /* ========== SETTERS ========== */
