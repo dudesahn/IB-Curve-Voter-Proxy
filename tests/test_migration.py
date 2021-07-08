@@ -20,6 +20,7 @@ def test_migration(gov, token, vault, dudesahn, strategist, whale, strategy, cha
     assert updated_total_old == 0
 
     # harvest to get funds back in strategy
+    strategyProxy.approveStrategy(new_strategy.gauge(), new_strategy, {"from": gov})
     new_strategy.harvest({"from": dudesahn})
     new_strat_balance = new_strategy.estimatedTotalAssets()
     assert new_strat_balance >= total_old
