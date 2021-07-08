@@ -26,8 +26,8 @@ contract StrategyCurveIBVoterProxy is BaseStrategy {
         address(0xF5194c3325202F456c95c1Cf0cA36f8475C1949F); // Curve Iron Bank Gauge contract, v2 is tokenized, held by Yearn's voter
     ICurveStrategyProxy public proxy =
         ICurveStrategyProxy(
-            address(0x9a165622a744C20E3B2CB443AeD98110a33a231b)
-        ); // Yearn's Updated v3 StrategyProxy
+            address(0xA420A63BbEFfbda3B147d0585F1852C358e2C152)
+        ); // Yearn's Updated v4 StrategyProxy
 
     uint256 public optimal = 0;
 
@@ -395,11 +395,6 @@ contract StrategyCurveIBVoterProxy is BaseStrategy {
         } else {
             crvRouter = uniswapRouter;
         }
-    }
-
-    // Set Yearn's veCRV voter address, useful in case of contract upgrade
-    function setVoter(address _voter) external onlyGovernance {
-        voter = _voter;
     }
 
     // Set optimal token to sell harvested CRV into for depositing back to Iron Bank Curve pool.
