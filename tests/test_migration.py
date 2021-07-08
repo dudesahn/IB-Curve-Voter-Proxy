@@ -7,7 +7,9 @@ from brownie import config
 #       Show that nothing is lost!
 
 # test passes as of 21-05-20
-def test_migration(gov, token, vault, dudesahn, strategist, whale, strategy, chain, strategist_ms, strategyProxy, gaugeIB, StrategyCurveIBVoterProxy):
+def test_migration(
+    gov, token, vault, dudesahn, strategist, whale, strategy, chain, strategist_ms, strategyProxy, gaugeIB, StrategyCurveIBVoterProxy
+):
     # deploy our new strategy
     new_strategy = dudesahn.deploy(StrategyCurveIBVoterProxy, vault)
     total_old = strategy.estimatedTotalAssets()
@@ -24,14 +26,14 @@ def test_migration(gov, token, vault, dudesahn, strategist, whale, strategy, cha
     new_strategy.harvest({"from": dudesahn})
     new_strat_balance = new_strategy.estimatedTotalAssets()
     assert new_strat_balance >= total_old
-    
+
     startingVault = vault.totalAssets()
     print("\nVault starting assets with new strategy: ", startingVault)
-    
+
     # simulate a day of waiting for share price to bump back up
     chain.sleep(86400)
     chain.mine(1)
-    
+
     # Test out our migrated strategy, confirm we're making a profit
     new_strategy.harvest({"from": dudesahn})
     vaultAssets_2 = vault.totalAssets()

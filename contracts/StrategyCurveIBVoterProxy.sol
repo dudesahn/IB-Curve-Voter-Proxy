@@ -40,7 +40,7 @@ contract StrategyCurveIBVoterProxy is BaseStrategy {
     address public constant crvRouter =
         address(0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F); // default to sushiswap, more CRV liquidity there
     address[] public crvPath;
-    
+
     // Swap stuff
     uint256 public keepCRV = 1000; // the percentage of CRV we re-lock for boost (in basis points)
     uint256 public constant FEE_DENOMINATOR = 10000; // with this and the above, sending 10% of our CRV yield to our voter
@@ -98,7 +98,6 @@ contract StrategyCurveIBVoterProxy is BaseStrategy {
             uint256 _debtPayment
         )
     {
-
         // if we have anything in the gauge, then harvest CRV from the gauge
         uint256 gaugeTokens = proxy.balanceOf(gauge);
         if (gaugeTokens > 0) {
@@ -107,20 +106,20 @@ contract StrategyCurveIBVoterProxy is BaseStrategy {
             // if we claimed any CRV, then sell it
             if (crvBalance > 0) {
                 uint256 _keepCRV = crvBalance.mul(keepCRV).div(FEE_DENOMINATOR);
-            	IERC20(address(crv)).safeTransfer(voter, _keepCRV);
-            	uint256 crvRemainder = crvBalance.sub(_keepCRV);
+                IERC20(address(crv)).safeTransfer(voter, _keepCRV);
+                uint256 crvRemainder = crvBalance.sub(_keepCRV);
 
-        		_sell(crvRemainder);
-        		if (optimal == 0) {
-                	uint256 daiBalance = dai.balanceOf(address(this));
-                	curve.add_liquidity([daiBalance, 0, 0], 0, true);
-            	} else if (optimal == 1) {
-                	uint256 usdcBalance = usdc.balanceOf(address(this));
-                	curve.add_liquidity([0, usdcBalance, 0], 0, true);
-            	} else {
-                	uint256 usdtBalance = usdt.balanceOf(address(this));
-                	curve.add_liquidity([0, 0, usdtBalance], 0, true);
-            	}
+                _sell(crvRemainder);
+                if (optimal == 0) {
+                    uint256 daiBalance = dai.balanceOf(address(this));
+                    curve.add_liquidity([daiBalance, 0, 0], 0, true);
+                } else if (optimal == 1) {
+                    uint256 usdcBalance = usdc.balanceOf(address(this));
+                    curve.add_liquidity([0, usdcBalance, 0], 0, true);
+                } else {
+                    uint256 usdtBalance = usdt.balanceOf(address(this));
+                    curve.add_liquidity([0, 0, usdtBalance], 0, true);
+                }
             }
         }
 
@@ -146,7 +145,10 @@ contract StrategyCurveIBVoterProxy is BaseStrategy {
                 Math.min(stakedBal, _debtOutstanding)
             );
 
-            _debtPayment = Math.min(_debtOutstanding, want.balanceOf(address(this)));
+            _debtPayment = Math.min(
+                _debtOutstanding,
+                want.balanceOf(address(this))
+            );
             // want to make sure we report losses properly here
             if (_debtPayment < _debtOutstanding) {
                 _loss = _loss.add(_debtOutstanding.sub(_debtPayment));
@@ -162,8 +164,8 @@ contract StrategyCurveIBVoterProxy is BaseStrategy {
         // Send all of our Iron Bank pool tokens to the proxy and deposit to the gauge if we have any
         uint256 _toInvest = want.balanceOf(address(this));
         if (_toInvest > 0) {
-        	want.safeTransfer(address(proxy), _toInvest);
-        	proxy.deposit(gauge, address(want));
+            want.safeTransfer(address(proxy), _toInvest);
+            proxy.deposit(gauge, address(want));
         }
     }
 
@@ -184,7 +186,6 @@ contract StrategyCurveIBVoterProxy is BaseStrategy {
             _liquidatedAmount = Math.min(_amountNeeded, withdrawnBal);
 
             _loss = _amountNeeded.sub(_liquidatedAmount);
-            
         } else {
             // we have enough balance to cover the liquidation available
             return (_amountNeeded, 0);
@@ -267,20 +268,20 @@ contract StrategyCurveIBVoterProxy is BaseStrategy {
     }
 
     // convert our keeper's eth cost into dai
-    function ethToDai(uint256 _ethAmount)
-        internal
-        view
-        returns (uint256)
-    {
+    function ethToDai(uint256 _ethAmount) internal view returns (uint256) {
         if (_ethAmount > 0) {
             address[] memory ethPath = new address[](2);
-        	ethPath[0] = address(weth);
-        	ethPath[1] = address(dai);
-        	uint256[] memory callCostInDai = IUniswapV2Router02(crvRouter).getAmountsOut(_ethAmount, ethPath);
-        	
-        	return callCostInDai[callCostInDai.length - 1];
+            ethPath[0] = address(weth);
+            ethPath[1] = address(dai);
+            uint256[] memory callCostInDai =
+                IUniswapV2Router02(crvRouter).getAmountsOut(
+                    _ethAmount,
+                    ethPath
+                );
+
+            return callCostInDai[callCostInDai.length - 1];
         } else {
-        	return 0;
+            return 0;
         }
     }
 

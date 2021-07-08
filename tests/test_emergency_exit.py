@@ -23,14 +23,13 @@ def test_emergency_exit(gov, token, vault, dudesahn, strategist, whale, strategy
     # simulate a day of waiting for share price to bump back up
     chain.sleep(86400)
     chain.mine(1)
-    
-    # withdraw and confirm we made money
-    vault.withdraw({"from": whale})    
-    assert token.balanceOf(whale) > startingWhale 
 
-def test_emergency_shutdown_from_vault(
-    gov, token, vault, whale, strategy, chain, dudesahn, strategyProxy, gaugeIB
-):
+    # withdraw and confirm we made money
+    vault.withdraw({"from": whale})
+    assert token.balanceOf(whale) > startingWhale
+
+
+def test_emergency_shutdown_from_vault(gov, token, vault, whale, strategy, chain, dudesahn, strategyProxy, gaugeIB):
     ## deposit to the vault after approving
     startingWhale = token.balanceOf(whale)
     token.approve(vault, 2 ** 256 - 1, {"from": whale})
