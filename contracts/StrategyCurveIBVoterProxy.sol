@@ -87,6 +87,11 @@ contract StrategyCurveIBVoterProxy is BaseStrategy {
         crvPath[0] = address(crv);
         crvPath[1] = address(weth);
         crvPath[2] = address(dai);
+        
+        
+        // set our health check
+        healthCheck = address(0xDDCea799fF1699e98EDF118e0629A974Df7DF012); // health.ychad.eth
+
     }
 
     function name() external view override returns (string memory) {
@@ -222,7 +227,7 @@ contract StrategyCurveIBVoterProxy is BaseStrategy {
                 _loss = debt.sub(assets);
             }
         }
-        require(_liquidatedAmount + _loss == _amountNeeded);
+        _loss = _amountNeeded.sub(_liquidatedAmount);
         return (_liquidatedAmount, _loss);
     }
 
