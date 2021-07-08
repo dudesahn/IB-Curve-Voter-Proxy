@@ -104,9 +104,9 @@ def vault(pm):
 @pytest.fixture(scope="function")
 def strategy(strategist, keeper, vault, gov, StrategyCurveIBVoterProxy, guardian, strategyProxy):
 	# parameters for this are: strategy, vault, max deposit, minTimePerInvest, slippage protection (10000 = 100% slippage allowed), 
-    strategy = guardian.deploy(StrategyCurveIBVoterProxy, vault)
-    strategyProxy.approveStrategy(strategy.gauge(), strategy, {"from": gov})
+    strategy = strategist.deploy(StrategyCurveIBVoterProxy, vault)
     strategy.setKeeper(keeper, {"from": gov})
+    strategyProxy.approveStrategy(strategy.gauge(), strategy, {"from": gov})
     vault.setManagementFee(0, {"from": gov})
     vault.addStrategy(strategy, 10_000, 0, 2 ** 256 -1, 1000, {"from": gov})
     strategy.setStrategist(strategist, {"from": gov})
