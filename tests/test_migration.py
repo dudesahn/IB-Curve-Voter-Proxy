@@ -6,62 +6,36 @@ from brownie import config
 #       Use another copy of the strategy to simulate the migration
 #       Show that nothing is lost!
 
-def test_migration(gov, token, vault, dudesahn, strategist, whale, strategyProxy, gaugeIB, rando, chain, amount, StrategyCurveIBVoterProxy, live_strategy, vault_balance, strategist_ms):
+# test passes as of 21-05-20
+def test_migration(
+    gov, token, vault, dudesahn, strategist, whale, strategy, chain, strategist_ms, strategyProxy, gaugeIB, StrategyCurveIBVoterProxy
+):
     # deploy our new strategy
-    new_strategy = dudesahn.deploy(StrategyCurveIBVoterProxy, vault)  
-      
-    # prepare our live strategy to migrate
-    vault.updateStrategyDebtRatio(live_strategy, 0, {"from": strategist_ms})
-    live_strategy.harvest({"from": dudesahn})
-
-    # assert that our old strategy is empty
-    live_strat_balance = live_strategy.estimatedTotalAssets()
-    assert live_strat_balance == 0
-    old_gauge_balance = strategyProxy.balanceOf(gaugeIB)
-    assert old_gauge_balance == 0
-    print("\nLive strategy balance: ", live_strat_balance)
-    total_old = vault.totalAssets()
-    print("\nTotal Balance to Migrate: ", total_old)
-    print("\nProxy gauge balance: ", old_gauge_balance)
+    new_strategy = dudesahn.deploy(StrategyCurveIBVoterProxy, vault)
+    total_old = strategy.estimatedTotalAssets()
 
     # migrate our old strategy
-    vault.migrateStrategy(live_strategy, new_strategy, {"from": strategist_ms})
+    vault.migrateStrategy(strategy, new_strategy, {"from": gov})
 
-    # approve on new strategy with proxy
-    strategyProxy.approveStrategy(live_strategy.gauge(), new_strategy, {"from": gov})
-    vault.updateStrategyDebtRatio(new_strategy, 10000, {"from": strategist_ms})
- 
-    # Update deposit limit to the vault to $10 million since it's currently maxed out
-    vault.setDepositLimit(10000000000000000000000000, {"from": strategist_ms})
-    
+    # assert that our old strategy is empty
+    updated_total_old = strategy.estimatedTotalAssets()
+    assert updated_total_old == 0
+
     # harvest to get funds back in strategy
+    strategyProxy.approveStrategy(new_strategy.gauge(), new_strategy, {"from": gov})
     new_strategy.harvest({"from": dudesahn})
-    new_gauge_balance = strategyProxy.balanceOf(gaugeIB)
-    assert new_gauge_balance == total_old
-    print("\nNew Proxy gauge balance: ", new_gauge_balance)
-    
+    new_strat_balance = new_strategy.estimatedTotalAssets()
+    assert new_strat_balance >= total_old
+
     startingVault = vault.totalAssets()
     print("\nVault starting assets with new strategy: ", startingVault)
-    
-    # simulate a day of earnings
+
+    # simulate a day of waiting for share price to bump back up
     chain.sleep(86400)
     chain.mine(1)
-    
-    # test out tend
-    new_strategy.tend({"from": dudesahn})
-    assert new_strategy.tendCounter() == 1
-    
-    # simulate a day of earnings
-    chain.sleep(86400)
-    chain.mine(1)
-    
+
     # Test out our migrated strategy, confirm we're making a profit
     new_strategy.harvest({"from": dudesahn})
-    assert new_strategy.tendCounter() == 0
     vaultAssets_2 = vault.totalAssets()
     assert vaultAssets_2 > startingVault
     print("\nAssets after 1 day harvest: ", vaultAssets_2)
-        
-    # withdraw my money
-    vault.withdraw({"from": dudesahn})    
-    assert token.balanceOf(dudesahn) > 0
