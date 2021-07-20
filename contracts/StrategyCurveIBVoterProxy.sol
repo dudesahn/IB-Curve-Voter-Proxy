@@ -67,7 +67,6 @@ contract StrategyCurveIBVoterProxy is BaseStrategy {
 
     constructor(address _vault) public BaseStrategy(_vault) {
         // You can set these parameters on deployment to whatever you want
-        minReportDelay = 302400; // 3.5 days
         maxReportDelay = 1209600; // 14 days
         debtThreshold = 400 * 1e18; // we shouldn't ever have debt, but set a bit of a buffer
         profitFactor = 4000; // in this strategy, profitFactor is only used for telling keep3rs when to move funds from vault to strategy
@@ -87,10 +86,6 @@ contract StrategyCurveIBVoterProxy is BaseStrategy {
         crvPath[0] = address(crv);
         crvPath[1] = address(weth);
         crvPath[2] = address(dai);
-        
-        
-        // set our health check
-        healthCheck = address(0xDDCea799fF1699e98EDF118e0629A974Df7DF012); // health.ychad.eth
 
     }
 
